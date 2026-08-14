@@ -1,101 +1,90 @@
-# StarGrave —— Star 仓库清理建议器（CLI）
+# StarGrave —— Star 仓库清理建议器
 
-StarGrave 扫描你的 GitHub star 仓库，用本地规则（可选叠加 LLM）判断哪些仓库已死、哪些值得复查，并安全地执行 unstar / undo 回滚。
+> 扫描你的 GitHub star 仓库，用本地规则（可选叠加 LLM）判断哪些仓库已死、哪些值得复查，并安全地执行 unstar / undo 回滚。
 
-## 特性
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-51%20passed-brightgreen)](tests/)
+[![Deps](https://img.shields.io/badge/deps-PyGithub%20%2B%20rich-blueviolet)](requirements.txt)
 
-- **只读扫描**：默认不写任何 GitHub 状态；unstar/undo 均有 `--yes` 安全门。
-- **规则 + LLM 双重判断**：本地硬规则（2 年无 push、archived、低 star）兜底；无 `LLM_API_KEY` 时优雅降级为纯规则，JSON 解析失败标记 `unknown` 且不执行任何动作。
-- **24h 缓存**：`store.get_cached` 命中即跳过 API 拉取（`--refresh` 强制刷新）。
-- **幂等**：`unstarred_at` 记录在案，重复执行自动跳过；数据刷新不丢判定与历史。
-- **可回滚**：`undo` 用 `restar` 恢复并清除记录。
-- **批量限速**：批量 unstar 每请求间 sleep 0.5s，遇 403 限流立即急停。
+「你 4,000 个 Star 里有 30% 是死仓库」——帮你把 star 库清点一遍，决定留谁、清谁。
 
-## 安装
+## 功能特性
 
-```bash
-python -m pip install -r requirements.txt     # PyGithub + rich + pytest
-python -m pip install -e .                    # 可选：安装 starclean / gh-star-clean 命令
-```
+| 能力 | 说明 |
+|---|---|
+| 只读扫描 | 默认不写任何 GitHub 状态；unstar/undo 均有 `--yes` 安全门 |
+| 规则 + LLM 双重判断 | 本地硬规则兜底（2 年无 push / archived / 低 star）；无 LLM key 时优雅降级纯规则 |
+| 24h 缓存 | SQLite 本地缓存，命中即跳过 API 拉取（`--refresh` 强制刷新） |
+| 幂等 + 可回滚 | `unstarred_at` 记录在案，重复执行自动跳过；`undo` 一键恢复 |
+| 批量限速 | 每请求间 sleep 0.5s，遇 403 限流立即急停 |
+| 纯静态 Web 版 | 浏览器直连 GitHub API，判定规则与 CLI 完全一致，支持清点条/筛选/导出报告 |
 
-> Python 3.10+；本机开发环境为 Python 3.12。
-
-## 获取 GitHub Token
-
-1. 打开 <https://github.com/settings/tokens>，点击 **Generate new token** → 选择 **classic**。
-2. 勾选 **repo**（只读即可，本工具只读公开数据）后生成。
-3. 设置环境变量：
-
-```powershell
-# PowerShell
-$env:GITHUB_TOKEN = 'ghp_xxx'
-```
-
-```cmd
-:: CMD
-set GITHUB_TOKEN=ghp_xxx
-```
-
-**安全约定**：Token 只从环境变量读取，`--token` 参数仅接受 `env:VAR` 形式（例如 `--token env:GITHUB_TOKEN`），拒绝任何明文传入。
-
-## 使用示例
+## 快速开始
 
 ```bash
+pip install -r requirements.txt
+
+# 获取 Token：github.com/settings/tokens → Generate new token → 勾选 repo（只读）
+$env:GITHUB_TOKEN = 'ghp_xxx'    # PowerShell
+
 # 扫描并生成建议（有 LLM_API_KEY 时叠加 LLM，否则纯规则）
 starclean scan --user 你的用户名
 
-# 纯规则判断，JSON 输出（适合演示/脚本）
+# 纯规则判断，JSON 输出
 starclean scan --user 你的用户名 --no-llm --json
-
-# 忽略 24h 缓存强制重拉
-starclean scan --user 你的用户名 --refresh
 
 # 生成 Markdown 报告
 starclean report --to report.md
 
-# 按建议批量 unstar（仅处理判定为 unstar 的仓库；--yes 为最终确认，缺失则只展示不执行）
+# 按建议批量 unstar（--yes 为最终确认）
 starclean unstar --dead --yes --token env:GITHUB_TOKEN
-
-# 演练（不执行）
-starclean unstar --all --dry-run --token env:GITHUB_TOKEN
 
 # 撤销：恢复某个已 unstar 的仓库
 starclean undo --repo owner/repo --yes --token env:GITHUB_TOKEN
 ```
 
-### 示例输出（`scan --no-llm`）
+**安全约定**：Token 只从环境变量读取，`--token` 参数仅接受 `env:VAR` 形式（如 `--token env:GITHUB_TOKEN`），拒绝明文传入。
+
+## Web 版
+
+打开 `web/index.html`（纯静态，无需后端）即可在浏览器中使用：输入用户名 → 扫描 → 清点条可视化（清理/再看/保留）→ 按判定筛选 → 导出 Markdown 报告。Token 仅保存在浏览器 `localStorage`，只发送到 `api.github.com`。
+
+## 判定规则
+
+| 条件 | 判定 |
+|---|---|
+| archived 且 >730 天无 push | 清理 |
+| 已归档（archived） | 清理 |
+| >730 天无 push 且 <30 star | 清理 |
+| >730 天无 push 但有关注度 | 值得再看 |
+| ≤90 天内有 push | 保留 |
+| 其余 | 交由你判断（可叠加 LLM） |
+
+## 项目结构
 
 ```
-命中 24h 缓存（3 个仓库），跳过 API 拉取
-┌──────────────┬───────┬────────────┬─────────┬───────┬────────┬───────────────────────────┐
-│ 仓库         │ stars │ last push  │ verdict │ score │ source │ reason                    │
-├──────────────┼───────┼────────────┼─────────┼───────┼────────┼───────────────────────────┤
-│ dead/demo    │ 5     │ 2022-01-01 │ unstar  │ 45    │ rule   │ 仅 5 star 且 1038 天无 push│
-│ old/legacy   │ 800   │ 2021-03-01 │ revisit │ 60    │ rule   │ 1422 天无 push，建议复查    │
-│ active/new   │ 120   │ 2026-01-01 │ keep    │ 90    │ rule   │ 7 天内有 push，仍在维护     │
-└──────────────┴───────┴────────────┴─────────┴───────┴────────┴───────────────────────────┘
-统计：keep: 1, unstar: 1, revisit: 1, unknown: 0；共 3 个仓库
+main.py        CLI 入口（scan/report/unstar/undo）
+gh_data.py     GitHub API 只读数据源（分页/限流/进度）
+store.py       SQLite 缓存与判定历史（24h）
+analyze.py     规则 + LLM 判定层（LLM_API_KEY 仅此处使用）
+actions.py     唯一写 GitHub 的模块（403 急停/幂等/回滚）
+web/index.html 纯静态 Web 版
+tests/         pytest 测试（51 例，全 mock 不触网）
 ```
 
-## 无 Token 时
-
-未提供 `GITHUB_TOKEN` 且未指定 `--user` 时，程序不会崩溃，而是打印获取 Token 的指引并退出（退出码 2）。有 `--user` 时允许匿名扫描（限流 60 次/小时），会在输出中提示建议设置 Token。
-
-## 运行测试
+## 测试
 
 ```bash
 pytest tests/ -q
 ```
 
-测试全部使用 mock 假响应，不触网。
+## 隐私与免责
 
-## 隐私说明
+- `GITHUB_TOKEN` 只从环境变量读取，不写入命令行历史、配置文件或日志；仓库数据只缓存在本地 SQLite。
+- 若配置 `LLM_API_KEY`，LLM 仅收到仓库公开元数据摘要（名称/star/语言/最近 push/描述截断），且只返回 JSON 判定。
+- 清理建议由规则与 LLM 自动生成，可能存在误判；**所有 unstar/undo 均需人工通过 `--yes` 最终确认**。
 
-- `GITHUB_TOKEN` 只从环境变量读取，不写入命令行历史、配置文件或日志。
-- 仓库数据只缓存在本地 SQLite（默认 `~/.starclean.db`，可用 `--db` 指定路径）。
-- `LLM_API_KEY` 仅进入 analyze 模块；LLM 仅收到仓库的公开元数据摘要（名称、star 数、语言、最近 push 时间、描述截断），并明确要求只返回 JSON 判定。
-- 本工具不收集、不上传任何使用数据。
+## License
 
-## AI 免责声明
-
-StarGrave 给出的"清理建议"由本地规则与 LLM 自动生成，可能存在误判（例如把维护缓慢但仍有价值的项目判为已死）。**所有 unstar/undo 操作均需人工通过 `--yes` 最终确认**；建议先查看建议理由再批量执行。LLM 的判定仅作参考，不代表对任何项目的价值评价。
+[GPL-3.0](LICENSE) — Copyright (C) 2026 anyuer678

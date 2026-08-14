@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Star 仓库清理建议器（StarGrave）CLI"
 readme = "README.md"
 requires-python = ">=3.9"
+license = { text = "GPL-3.0" }
 dependencies = [
     "PyGithub>=1.59",
     "rich>=13.0",
