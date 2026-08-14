@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stargrave"
+version = "0.1.0"
+description = "Star 仓库清理建议器（StarGrave）CLI"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyGithub>=1.59",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+starclean = "main:main"
+gh-star-clean = "main:main"
+
+[tool.setuptools]
+py-modules = ["main", "gh_data", "store", "actions", "analyze"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

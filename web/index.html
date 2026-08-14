@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star 清理建议器</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --star: #e3b341;
+    --unstar: #f85149;
+    --revisit: #db6d28;
+    --keep: #3fb950;
+    --radius: 10px;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  header.top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+  h1 .star-dot { color: var(--star); }
+  .tagline { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 20px;
+  }
+
+  .controls { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; }
+  .controls label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .controls input {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 9px 12px;
+    font-family: var(--mono);
+    font-size: 14px;
+  }
+  .controls input:focus { outline: 2px solid var(--star); outline-offset: -1px; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--sans);
+  }
+  button:focus-visible { outline: 2px solid var(--star); outline-offset: 2px; }
+  #scanBtn {
+    background: var(--star);
+    color: #1c1400;
+    align-self: end;
+    padding: 10px 22px;
+    font-family: var(--mono);
+    font-weight: 700;
+  }
+  #scanBtn:disabled { opacity: 0.55; cursor: wait; }
+  .secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  .secondary:hover { border-color: var(--muted); }
+  .secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  #status { margin-top: 12px; font-size: 13px; color: var(--muted); min-height: 18px; }
+  #status.error { color: var(--unstar); }
+  #status.ok { color: var(--keep); }
+  #status .mono { font-family: var(--mono); }
+
+  /* 清点条：签名元素 */
+  .tally { display: none; margin-top: 16px; }
+  .tally.visible { display: block; }
+  .tally-bar {
+    display: flex;
+    height: 26px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .tally-seg { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
+  .tally-seg b { font-family: var(--mono); font-size: 13px; color: #0d1117; }
+  .tally-seg span { font-size: 12px; color: rgba(13, 17, 23, 0.75); font-weight: 600; }
+  .seg-unstar { background: var(--unstar); }
+  .seg-revisit { background: var(--revisit); }
+  .seg-keep { background: var(--keep); }
+  .tally-legend { display: flex; gap: 18px; margin-top: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .tally-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; margin-top: 20px; flex-wrap: wrap; }
+  .filters { display: flex; gap: 6px; }
+  .chip {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+  .chip.active { border-color: var(--star); color: var(--star); }
+  #search {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 7px 12px;
+    font-size: 13px;
+    font-family: var(--mono);
+    width: 220px;
+  }
+  #search:focus { outline: 2px solid var(--star); outline-offset: -1px; }
+  #exportBtn { margin-left: auto; }
+
+  .empty {
+    margin-top: 20px;
+    color: var(--muted);
+    text-align: center;
+    padding: 40px 16px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  caption { text-align: left; font-size: 13px; color: var(--muted); padding: 0 0 8px; }
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+  }
+  td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 14px; }
+  tr:last-child td { border-bottom: none; }
+  tr.repo:hover td { background: var(--panel-2); }
+  .repo-name { font-family: var(--mono); font-size: 13.5px; }
+  .repo-name a { color: var(--text); text-decoration: none; }
+  .repo-name a:hover { color: var(--star); text-decoration: underline; }
+  .repo-desc { color: var(--muted); font-size: 12.5px; margin-top: 2px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  .archived-badge {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+  }
+  .badge {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 3px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+  .badge-unstar { background: rgba(248, 81, 73, 0.15); color: var(--unstar); border: 1px solid rgba(248, 81, 73, 0.4); }
+  .badge-revisit { background: rgba(219, 109, 40, 0.15); color: var(--revisit); border: 1px solid rgba(219, 109, 40, 0.4); }
+  .badge-keep { background: rgba(63, 185, 80, 0.15); color: var(--keep); border: 1px solid rgba(63, 185, 80, 0.4); }
+  .reason { color: var(--muted); font-size: 12.5px; max-width: 300px; }
+  .score { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+
+  .foot-note { margin-top: 24px; font-size: 12px; color: var(--muted); }
+  .foot-note code { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-family: var(--mono); }
+
+  @media (max-width: 720px) {
+    .controls { grid-template-columns: 1fr; }
+    #scanBtn { align-self: stretch; }
+    .tagline { display: none; }
+    th:nth-child(3), td:nth-child(3) { display: none; }
+    .reason { max-width: 200px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><span class="star-dot">★</span> Star 清理建议器</h1>
+    <div class="tagline">把你的 star 库清点一遍</div>
+  </header>
+
+  <section class="panel">
+    <div class="controls">
+      <div>
+        <label for="userInput">GitHub 用户名</label>
+        <input id="userInput" type="text" autocomplete="username" placeholder="octocat">
+      </div>
+      <div>
+        <label for="tokenInput">Token（可选，存于本浏览器）</label>
+        <input id="tokenInput" type="password" autocomplete="off" placeholder="ghp_… 或留空（匿名，限速低）">
+      </div>
+      <button id="scanBtn">扫 描</button>
+    </div>
+    <div id="status" role="status" aria-live="polite"></div>
+
+    <div class="tally" id="tally">
+      <div class="tally-bar" id="tallyBar">
+        <div class="tally-seg seg-unstar" id="segUnstar" title="建议清理"></div>
+        <div class="tally-seg seg-revisit" id="segRevisit" title="值得再看"></div>
+        <div class="tally-seg seg-keep" id="segKeep" title="建议保留"></div>
+      </div>
+      <div class="tally-legend">
+        <span><i class="dot" style="background:var(--unstar)"></i>建议清理</span>
+        <span><i class="dot" style="background:var(--revisit)"></i>值得再看</span>
+        <span><i class="dot" style="background:var(--keep)"></i>建议保留</span>
+        <span id="rateInfo"></span>
+      </div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="filters">
+      <button class="chip active" data-filter="all">全部</button>
+      <button class="chip" data-filter="unstar">建议清理</button>
+      <button class="chip" data-filter="revisit">值得再看</button>
+      <button class="chip" data-filter="keep">建议保留</button>
+    </div>
+    <input id="search" type="search" placeholder="过滤仓库名…" aria-label="过滤仓库名">
+    <button id="exportBtn" class="secondary" disabled>导出 Markdown 报告</button>
+  </div>
+
+  <div class="empty" id="emptyBox">输入用户名后点「扫描」。判定规则：归档仓库、两年以上未更新且低 star 的仓库会建议清理；活跃维护的仓库建议保留。</div>
+
+  <table id="repoTable" style="display:none">
+    <caption id="tableCaption"></caption>
+    <thead>
+      <tr>
+        <th>仓库</th>
+        <th style="text-align:right">★ Star</th>
+        <th style="text-align:right">最后 push</th>
+        <th>判定</th>
+        <th>理由</th>
+      </tr>
+    </thead>
+    <tbody id="repoBody"></tbody>
+  </table>
+
+  <p class="foot-note">
+    规则与 CLI 版 <code>04-Star清理建议器</code> 完全一致（archived → 清理；&gt;730 天未更新且 &lt;30 star → 清理；&gt;730 天 → 再看；&lt;=90 天 → 保留）。
+    Token 仅保存在本浏览器 <code>localStorage</code>，只发送到 <code>api.github.com</code>，请使用最小权限 token —— 本页为演示用途，不做任何清理操作。
+  </p>
+</div>
+
+<script>
+"use strict";
+
+const DAY = 24 * 60 * 60 * 1000;
+const LS_USER = "star-cleaner:user";
+const LS_TOKEN = "star-cleaner:token";
+
+// —— 判定规则：与 analyze.py 的 rule_verdict 阈值对齐 ——
+const VERDICT = { KEEP: "keep", REVISIT: "revisit", UNSTAR: "unstar", NONE: null };
+
+function daysAgo(iso) {
+  const t = Date.parse(iso);
+  if (!t) return Infinity;
+  return Math.floor((Date.now() - t) / DAY);
+}
+
+function judge(repo) {
+  const since = daysAgo(repo.pushed_at);
+  const archived = !!repo.archived;
+  if (archived) return { verdict: VERDICT.UNSTAR, score: 35, reason: "仓库已归档（archived），不再维护" };
+  if (since > 730) {
+    if (repo.stargazers_count < 30) return { verdict: VERDICT.UNSTAR, score: 45, reason: `已 ${since} 天无 push，仅 ${repo.stargazers_count} star，疑似弃坑` };
+    return { verdict: VERDICT.REVISIT, score: 60, reason: `已 ${since} 天无 push，但有一定关注度，值得再看` };
+  }
+  if (since <= 90) return { verdict: VERDICT.KEEP, score: 90, reason: `${since} 天内有 push，维护活跃` };
+  return { verdict: VERDICT.NONE, score: null, reason: "近 3 个月～2 年未更新，交由你判断" };
+}
+
+const BADGE = {
+  [VERDICT.UNSTAR]: { text: "建议清理", cls: "badge-unstar" },
+  [VERDICT.REVISIT]: { text: "值得再看", cls: "badge-revisit" },
+  [VERDICT.KEEP]: { text: "建议保留", cls: "badge-keep" },
+  [VERDICT.NONE]: { text: "—", cls: "" },
+};
+const RANK = { [VERDICT.UNSTAR]: 0, [VERDICT.REVISIT]: 1, [VERDICT.KEEP]: 2, [VERDICT.NONE]: 3 };
+
+// —— 状态 ——
+let repos = [];
+let filter = "all";
+let verdicts = new Map();
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+
+function setStatus(msg, kind) {
+  statusEl.textContent = msg;
+  statusEl.className = kind || "";
+}
+
+function fmtDays(d) {
+  if (d === Infinity) return "未知";
+  if (d < 1) return "今天";
+  if (d < 30) return `${d} 天前`;
+  if (d < 365) return `${Math.round(d / 30)} 个月前`;
+  return `${(d / 365).toFixed(1)} 年前`;
+}
+
+// —— 数据获取：分页拉取 star 列表 ——
+async function fetchStarred(username, token) {
+  const perPage = 100;
+  const auth = token ? `token ${token}` : "";
+  const base = token
+    ? "https://api.github.com/user/starred"
+    : `https://api.github.com/users/${encodeURIComponent(username)}/starred`;
+  const all = [];
+  let page = 1;
+  for (;;) {
+    const res = await fetch(`${base}?per_page=${perPage}&page=${page}`, {
+      headers: { Accept: "application/vnd.github+json", ...(auth ? { Authorization: auth } : {}) },
+    });
+    if (res.status === 401 || res.status === 403) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`GitHub 拒绝访问（${res.status}）：${body.message || "token 无效或权限不足"}`);
+    }
+    if (res.status === 404) throw new Error(`用户「${username}」不存在`);
+    if (!res.ok) throw new Error(`GitHub 请求失败（${res.status}）`);
+    const batch = await res.json();
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    all.push(...batch);
+    if (batch.length < perPage) break;
+    page++;
+    const rate = res.headers.get("x-ratelimit-remaining");
+    if (rate) $("rateInfo").textContent = `剩余请求额度 ${rate}`;
+  }
+  return all;
+}
+
+// —— 渲染 ——
+function render() {
+  const list = repos
+    .map((r) => ({ r, v: verdicts.get(r.full_name) }))
+    .filter(({ v }) => filter === "all" || (v && v.verdict === filter))
+    .filter(({ r }) => {
+      const q = $("search").value.trim().toLowerCase();
+      return !q || r.full_name.toLowerCase().includes(q);
+    })
+    .sort((a, b) => RANK[a.v.verdict] - RANK[b.v.verdict] || b.r.stargazers_count - a.r.stargazers_count);
+
+  const tbody = $("repoBody");
+  tbody.textContent = "";
+  const frag = document.createDocumentFragment();
+  for (const { r, v } of list) {
+    const tr = document.createElement("tr");
+    tr.className = "repo";
+    const badge = BADGE[v.verdict];
+    tr.innerHTML = `
+      <td>
+        <div class="repo-name"><a href="${r.html_url}" target="_blank" rel="noopener">${r.full_name}</a>
+        ${r.archived ? '<span class="archived-badge">archived</span>' : ""}</div>
+        <div class="repo-desc">${(r.description || "").replace(/</g, "&lt;") || "（无描述）"}</div>
+      </td>
+      <td class="num">${r.stargazers_count}</td>
+      <td class="num">${fmtDays(daysAgo(r.pushed_at))}</td>
+      <td><span class="badge ${badge.cls}">${badge.text}</span></td>
+      <td><div class="reason">${v.reason}</div><div class="score">${v.score != null ? "score " + v.score : ""}</div></td>`;
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+  $("tableCaption").textContent = `共 ${repos.length} 个 star，当前显示 ${list.length} 个`;
+  $("repoTable").style.display = "block";
+  $("emptyBox").style.display = "none";
+  $("exportBtn").disabled = repos.length === 0;
+  renderTally();
+}
+
+function renderTally() {
+  const tally = $("tally");
+  if (!repos.length) { tally.classList.remove("visible"); return; }
+  tally.classList.add("visible");
+  const count = { unstar: 0, revisit: 0, keep: 0 };
+  for (const v of verdicts.values()) {
+    if (v.verdict && count[v.verdict] !== undefined) count[v.verdict]++;
+  }
+  const total = Math.max(1, repos.length);
+  const seg = (cls, n) => {
+    const el = $(cls);
+    const pct = (100 * n) / total;
+    el.style.width = pct + "%";
+    el.style.display = n ? "flex" : "none";
+    el.innerHTML = n ? `<b>${n}</b><span>${cls === "segUnstar" ? "清理" : cls === "segRevisit" ? "再看" : "保留"}</span>` : "";
+  };
+  seg("segUnstar", count.unstar);
+  seg("segRevisit", count.revisit);
+  seg("segKeep", count.keep);
+}
+
+function buildReport() {
+  const lines = ["# Star 清理建议报告", "", `- 用户名：${$("userInput").value.trim() || "(匿名)"}`,
+    `- 生成时间：${new Date().toLocaleString("zh-CN")}`, `- 仓库总数：${repos.length}`, ""];
+  const byVerdict = [VERDICT.UNSTAR, VERDICT.REVISIT, VERDICT.KEEP, VERDICT.NONE];
+  for (const v of byVerdict) {
+    const items = repos
+      .map((r) => ({ r, j: verdicts.get(r.full_name) }))
+      .filter(({ j }) => j.verdict === v)
+      .sort((a, b) => b.r.stargazers_count - a.r.stargazers_count);
+    if (!items.length) continue;
+    lines.push(`## ${BADGE[v].text}（${items.length}）`, "");
+    for (const { r, j } of items) {
+      lines.push(`- [ ] ${r.full_name} — ${j.reason}（score ${j.score ?? "-"}，最后 push ${fmtDays(daysAgo(r.pushed_at))}）`);
+    }
+    lines.push("");
+  }
+  lines.push("> 由 Star 清理建议器（web 版）生成。勾选后可在 CLI 版执行 `unstar`。");
+  return lines.join("\n");
+}
+
+function downloadReport() {
+  const blob = new Blob([buildReport()], { type: "text/markdown;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "star-cleanup-report.md";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// —— 事件 ——
+$("scanBtn").addEventListener("click", async () => {
+  const username = $("userInput").value.trim();
+  if (!username) { setStatus("先填一个 GitHub 用户名。", "error"); $("userInput").focus(); return; }
+  const token = $("tokenInput").value.trim();
+  localStorage.setItem(LS_USER, username);
+  if (token) localStorage.setItem(LS_TOKEN, token);
+  else localStorage.removeItem(LS_TOKEN);
+
+  $("scanBtn").disabled = true;
+  setStatus("正在拉取 star 列表…");
+  try {
+    const list = await fetchStarred(username, token);
+    repos = list;
+    verdicts = new Map(list.map((r) => [r.full_name, judge(r)]));
+    render();
+    setStatus(
+      `清点完成：${repos.length} 个 star，其中建议清理 ${[...verdicts.values()].filter((v) => v.verdict === VERDICT.UNSTAR).length} 个。`,
+      "ok"
+    );
+  } catch (e) {
+    setStatus(e.message, "error");
+  } finally {
+    $("scanBtn").disabled = false;
+  }
+});
+
+document.querySelectorAll(".chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    filter = chip.dataset.filter;
+    render();
+  });
+});
+$("search").addEventListener("input", render);
+$("exportBtn").addEventListener("click", downloadReport);
+
+// 恢复上次输入
+(function restore() {
+  const u = localStorage.getItem(LS_USER);
+  const t = localStorage.getItem(LS_TOKEN);
+  if (u) $("userInput").value = u;
+  if (t) $("tokenInput").value = t;
+})();
+</script>
+</body>
+</html>
