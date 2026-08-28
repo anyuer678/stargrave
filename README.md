@@ -1,9 +1,9 @@
-# StarGrave —— Star 仓库清理建议器
+﻿# StarGrave —— Star 仓库清理建议器
 
 > 扫描你的 GitHub star 仓库，用本地规则（可选叠加 LLM）判断哪些仓库已死、哪些值得复查，并安全地执行 unstar / undo 回滚。
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-51%20passed-brightgreen)](tests/)
 [![Deps](https://img.shields.io/badge/deps-PyGithub%20%2B%20rich-blueviolet)](requirements.txt)
 
@@ -91,4 +91,6 @@ pytest tests/ -q
 
 ## License
 
-[GPL-3.0](LICENSE) — Copyright (C) 2026 anyuer678
+[MIT](LICENSE) — Copyright (C) 2026 anyuer678
+
+
