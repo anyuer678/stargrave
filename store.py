@@ -49,7 +49,7 @@ def _repo_from_json(text: str) -> RepoInfo:
 
 
 class StarStore:
-    def __init__(self, path: str = "~/.starclean.db", username: str | None = None):
+    def __init__(self, path: str = "~/.stargrave.db", username: str | None = None):
         self.path = os.path.expanduser(path)
         self.username = username or ""
         self._conn = sqlite3.connect(self.path)

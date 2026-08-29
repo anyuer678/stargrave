@@ -22,7 +22,7 @@ _store: StarStore | None = None
 
 
 def set_store(store: StarStore) -> None:
-    """注入 StarStore 实例（默认使用 ~/.starclean.db）。"""
+    """注入 StarStore 实例（默认使用 ~/.stargrave.db）。"""
     global _store
     _store = store
 

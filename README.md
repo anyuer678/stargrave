@@ -29,19 +29,19 @@ pip install -r requirements.txt
 $env:GITHUB_TOKEN = 'ghp_xxx'    # PowerShell
 
 # 扫描并生成建议（有 LLM_API_KEY 时叠加 LLM，否则纯规则）
-starclean scan --user 你的用户名
+stargrave scan --user 你的用户名
 
 # 纯规则判断，JSON 输出
-starclean scan --user 你的用户名 --no-llm --json
+stargrave scan --user 你的用户名 --no-llm --json
 
 # 生成 Markdown 报告
-starclean report --to report.md
+stargrave report --to report.md
 
 # 按建议批量 unstar（--yes 为最终确认）
-starclean unstar --dead --yes --token env:GITHUB_TOKEN
+stargrave unstar --dead --yes --token env:GITHUB_TOKEN
 
 # 撤销：恢复某个已 unstar 的仓库
-starclean undo --repo owner/repo --yes --token env:GITHUB_TOKEN
+stargrave undo --repo owner/repo --yes --token env:GITHUB_TOKEN
 ```
 
 **安全约定**：Token 只从环境变量读取，`--token` 参数仅接受 `env:VAR` 形式（如 `--token env:GITHUB_TOKEN`），拒绝明文传入。

@@ -1,4 +1,4 @@
-"""StarGrave CLI 编排入口（starclean 命令）。"""
+"""StarGrave CLI 编排入口（stargrave 命令）。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import analyze
 from analyze import Verdict
 from store import StarStore
 
-_DEFAULT_DB = "~/.starclean.db"
+_DEFAULT_DB = "~/.stargrave.db"
 
 
 def resolve_token(arg: str | None) -> str | None:
@@ -34,7 +34,7 @@ def resolve_token(arg: str | None) -> str | None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="starclean", description="Star 仓库清理建议器（StarGrave）"
+        prog="stargrave", description="Star 仓库清理建议器（StarGrave）"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -131,7 +131,7 @@ def cmd_report(args) -> int:
     store = StarStore(args.db)
     verdicts = store.get_verdicts()
     if not verdicts:
-        print("没有已保存的建议，请先运行 starclean scan")
+        print("没有已保存的建议，请先运行 stargrave scan")
         return 1
     md = analyze.summarize(list(verdicts.values()))
     try:
@@ -240,7 +240,7 @@ def _print_token_guide() -> None:
     print("  1. 打开 https://github.com/settings/tokens 创建 Personal Access Token")
     print("  2. 创建经典 Token，勾选 repo 只读权限即可（本工具只读公开数据）")
     print("  3. 设置环境变量：$env:GITHUB_TOKEN='xxx'（PowerShell）")
-    print("之后运行：starclean scan --user 你的用户名 --token env:GITHUB_TOKEN")
+    print("之后运行：stargrave scan --user 你的用户名 --token env:GITHUB_TOKEN")
 
 
 def _select_targets(verdicts: dict, args) -> list[str]:
