@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -62,17 +63,19 @@ def get_starred(username: str, token: str | None, *, per_page: int = 100) -> Ite
 
 
 def fetch(username: str, token: str | None, *, per_page: int = 100) -> FetchResult:
-    """拉取全部 star 仓库并附带本次拉取的限流状态。"""
+    """拉取全部 star 仓库并附带本次拉取前后的限流状态。"""
     gh = make_github(token, per_page=per_page)
-    repos = list(get_starred(username, token, per_page=per_page))
     remaining = 0
     reset_at = None
     try:
         rate = gh.get_rate_limit()
         remaining = rate.core.remaining
         reset_at = rate.core.reset
-    except Exception:
-        pass
+        if remaining < 50:
+            print(f"[WARN] API 配额仅剩 {remaining}，建议配置 Token 提升额度")
+    except Exception as exc:
+        print(f"[WARN] 限流状态查询失败（不影响采集）: {exc}", file=sys.stderr)
+    repos = list(get_starred(username, token, per_page=per_page))
     return FetchResult(repos=repos, rate_remaining=remaining, rate_reset_at=reset_at)
 
 
@@ -108,5 +111,5 @@ def _rate_limit_wait(gh) -> None:
             time.sleep(wait)
         else:
             print(f"限流余量 {remaining}，reset 尚需 {wait:.0f}s，建议使用 Token 提升配额")
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[WARN] 限流等待逻辑异常: {exc}", file=sys.stderr)
