@@ -1,4 +1,6 @@
-﻿# StarGrave —— Star 仓库清理建议器
+# StarGrave —— Star 仓库清理建议器
+
+[![Tests](https://github.com/anyuer678/stargrave/actions/workflows/test.yml/badge.svg)](https://github.com/anyuer678/stargrave/actions/workflows/test.yml)
 
 > 扫描你的 GitHub star 仓库，用本地规则（可选叠加 LLM）判断哪些仓库已死、哪些值得复查，并安全地执行 unstar / undo 回滚。
 
